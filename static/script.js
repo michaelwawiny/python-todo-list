@@ -2,35 +2,65 @@ const API_URL = "/api/tasks";
 
 let tasks = [];
 let currentFilter = "all";
+let editingTaskId = null;
 
 // DOM elements
-const taskList = document.getElementById("task-list");
 const taskForm = document.getElementById("task-form");
-const taskName = document.getElementById("task-name");
-const taskDescription = document.getElementById("task-description");
+const taskDataForm = document.getElementById("task-data-form");
+
+const taskNameInput = document.getElementById("task-name");
+const taskDescriptionInput = document.getElementById("task-description");
+const taskPriorityInput = document.getElementById("task-priority");
+const taskDeadlineInput = document.getElementById("task-deadline");
+
+const taskList = document.getElementById("task-list");
 const searchInput = document.getElementById("search-input");
 
-const openFormButton = document.getElementById("open-form");
-const cancelFormButton = document.getElementById("cancel-form");
+
+// Get today's date in YYYY-MM-DD format
+function getLocalDateString() {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+
+// Check whether a task is overdue
+function isOverdue(task) {
+    return Boolean(
+        task.deadline &&
+        task.deadline < getLocalDateString() &&
+        !task.completed
+    );
+}
 
 
 // API request helper
 async function apiRequest(url, options = {}) {
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...options.headers
+    try {
+        const response = await fetch(url, {
+            headers: {
+                "Content-Type": "application/json"
+            },
+            ...options
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Something went wrong.");
         }
-    });
 
-    const data = await response.json();
+        return data;
 
-    if (!response.ok) {
-        throw new Error(data.error || "Something went wrong.");
+    } catch (error) {
+        alert(error.message);
+        throw error;
     }
-
-    return data;
 }
 
 
@@ -38,16 +68,47 @@ async function apiRequest(url, options = {}) {
 async function loadTasks() {
     try {
         tasks = await apiRequest(API_URL);
+
         renderTasks();
         updateStatistics();
+
     } catch (error) {
-        console.error(error);
-        showMessage("Unable to load tasks. Check that Flask is running.");
+        console.error("Unable to load tasks:", error);
     }
 }
 
 
-// Display tasks
+// Escape HTML to prevent user-entered text from being interpreted as HTML
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => {
+        const entities = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        };
+
+        return entities[character];
+    });
+}
+
+
+// Format deadline for display
+function formatDeadline(deadline) {
+    if (!deadline) return "";
+
+    const date = new Date(`${deadline}T00:00:00`);
+
+    return date.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    });
+}
+
+
+// Render tasks
 function renderTasks() {
     const searchTerm = searchInput.value.toLowerCase().trim();
 
@@ -56,10 +117,15 @@ function renderTasks() {
             task.name.toLowerCase().includes(searchTerm) ||
             (task.description || "").toLowerCase().includes(searchTerm);
 
-        const matchesFilter =
-            currentFilter === "all" ||
-            (currentFilter === "completed" && task.completed) ||
-            (currentFilter === "pending" && !task.completed);
+        let matchesFilter = true;
+
+        if (currentFilter === "pending") {
+            matchesFilter = !task.completed;
+        }
+
+        if (currentFilter === "completed") {
+            matchesFilter = task.completed;
+        }
 
         return matchesSearch && matchesFilter;
     });
@@ -69,54 +135,86 @@ function renderTasks() {
             <div class="empty-state">
                 <div class="empty-icon">✓</div>
                 <h3>No tasks found</h3>
-                <p>Try adding a task or changing your search.</p>
+                <p>Add a task or change your search and filters.</p>
             </div>
         `;
+
         return;
     }
 
-    taskList.innerHTML = filteredTasks.map(task => `
-        <div class="task-card ${task.completed ? "completed" : ""}">
+    taskList.innerHTML = filteredTasks.map(task => {
+        const priority = task.priority || "medium";
+        const overdue = isOverdue(task);
 
-            <input
-                type="checkbox"
-                class="task-check"
-                ${task.completed ? "checked" : ""}
-                onchange="toggleTask('${task.id}', this.checked)"
-                aria-label="Mark ${escapeHTML(task.name)} as completed"
-            >
+        return `
+            <div class="task-card ${task.completed ? "completed" : ""}"
+                 data-id="${escapeHTML(task.id)}">
 
-            <div class="task-info">
-                <h3>${escapeHTML(task.name)}</h3>
-                <p>${escapeHTML(task.description || "No description provided")}</p>
+                <div class="task-checkbox">
+                    <input
+                        type="checkbox"
+                        ${task.completed ? "checked" : ""}
+                        onchange="toggleTask('${escapeHTML(task.id)}', this.checked)"
+                        aria-label="Mark ${escapeHTML(task.name)} as completed"
+                    >
+                </div>
+
+                <div class="task-content">
+
+                    <h3 class="task-title">
+                        ${escapeHTML(task.name)}
+                    </h3>
+
+                    ${
+                        task.description
+                            ? `<p class="task-description">
+                                ${escapeHTML(task.description)}
+                               </p>`
+                            : ""
+                    }
+
+                    <div class="task-meta">
+
+                        <span class="priority-badge priority-${escapeHTML(priority)}">
+                            ${escapeHTML(priority.toUpperCase())} PRIORITY
+                        </span>
+
+                        ${
+                            task.deadline
+                                ? `<span class="deadline-badge ${overdue ? "deadline-overdue" : ""}">
+                                    ${overdue ? "Overdue: " : "Due: "}
+                                    ${formatDeadline(task.deadline)}
+                                   </span>`
+                                : ""
+                        }
+
+                    </div>
+
+                </div>
+
+                <div class="task-actions">
+
+                    <button
+                        class="edit-button"
+                        onclick="editTask('${escapeHTML(task.id)}')"
+                        title="Edit task"
+                    >
+                        ✎
+                    </button>
+
+                    <button
+                        class="delete-button"
+                        onclick="deleteTask('${escapeHTML(task.id)}')"
+                        title="Delete task"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
             </div>
-
-            <span class="task-status">
-                ${task.completed ? "Completed" : "Pending"}
-            </span>
-
-            <button
-                class="delete-button"
-                onclick="deleteTask('${task.id}')"
-                aria-label="Delete task"
-            >
-                ×
-            </button>
-
-        </div>
-    `).join("");
-}
-
-
-// Escape user content before displaying it as HTML
-function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, character => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[character]);
+        `;
+    }).join("");
 }
 
 
@@ -128,59 +226,125 @@ async function updateStatistics() {
         document.getElementById("total-tasks").textContent = stats.total;
         document.getElementById("pending-tasks").textContent = stats.pending;
         document.getElementById("completed-tasks").textContent = stats.completed;
+        document.getElementById("overdue-tasks").textContent = stats.overdue;
+
+        document.getElementById("progress-percentage").textContent =
+            `${stats.progress}%`;
+
+        document.getElementById("progress-bar").style.width =
+            `${stats.progress}%`;
+
     } catch (error) {
-        console.error("Statistics error:", error);
+        console.error("Unable to update statistics:", error);
     }
 }
 
 
-// Add new task
-taskForm.addEventListener("submit", async function(event) {
+// Open task form
+function openTaskForm() {
+    editingTaskId = null;
+
+    taskDataForm.reset();
+
+    document.querySelector("#task-form h2").textContent = "Add New Task";
+
+    taskForm.hidden = false;
+
+    taskNameInput.focus();
+}
+
+
+// Close task form
+function closeTaskForm() {
+    taskForm.hidden = true;
+
+    taskDataForm.reset();
+
+    editingTaskId = null;
+}
+
+
+// Edit task
+function editTask(taskId) {
+    const task = tasks.find(item => item.id === taskId);
+
+    if (!task) {
+        alert("Task not found.");
+        return;
+    }
+
+    editingTaskId = taskId;
+
+    taskNameInput.value = task.name;
+    taskDescriptionInput.value = task.description || "";
+    taskPriorityInput.value = task.priority || "medium";
+    taskDeadlineInput.value = task.deadline || "";
+
+    document.querySelector("#task-form h2").textContent = "Edit Task";
+
+    taskForm.hidden = false;
+
+    taskNameInput.focus();
+}
+
+
+// Submit task form
+taskDataForm.addEventListener("submit", async function(event) {
     event.preventDefault();
 
-    const name = taskName.value.trim();
-    const description = taskDescription.value.trim();
+    const name = taskNameInput.value.trim();
+    const description = taskDescriptionInput.value.trim();
+    const priority = taskPriorityInput.value;
+    const deadline = taskDeadlineInput.value;
 
     if (!name) {
         alert("Please enter a task name.");
         return;
     }
 
-    try {
-        await apiRequest(API_URL, {
-            method: "POST",
-            body: JSON.stringify({
-                name: name,
-                description: description
-            })
-        });
+    const taskData = {
+        name,
+        description,
+        priority,
+        deadline
+    };
 
-        taskForm.reset();
-        taskForm.classList.add("hidden");
+    try {
+        if (editingTaskId) {
+            await apiRequest(`${API_URL}/${editingTaskId}`, {
+                method: "PATCH",
+                body: JSON.stringify(taskData)
+            });
+
+        } else {
+            await apiRequest(API_URL, {
+                method: "POST",
+                body: JSON.stringify(taskData)
+            });
+        }
+
+        closeTaskForm();
 
         await loadTasks();
 
     } catch (error) {
-        alert(error.message);
+        console.error("Unable to save task:", error);
     }
 });
 
 
-// Complete or uncomplete a task
+// Complete or uncomplete task
 async function toggleTask(taskId, completed) {
     try {
-        await apiRequest(`${API_URL}/${encodeURIComponent(taskId)}`, {
+        await apiRequest(`${API_URL}/${taskId}`, {
             method: "PATCH",
-            body: JSON.stringify({
-                completed: completed
-            })
+            body: JSON.stringify({ completed })
         });
 
         await loadTasks();
 
     } catch (error) {
-        alert(error.message);
-        await loadTasks();
+        console.error("Unable to update task:", error);
     }
 }
 
@@ -192,14 +356,14 @@ async function deleteTask(taskId) {
     if (!confirmed) return;
 
     try {
-        await apiRequest(`${API_URL}/${encodeURIComponent(taskId)}`, {
+        await apiRequest(`${API_URL}/${taskId}`, {
             method: "DELETE"
         });
 
         await loadTasks();
 
     } catch (error) {
-        alert(error.message);
+        console.error("Unable to delete task:", error);
     }
 }
 
@@ -225,17 +389,11 @@ document.querySelectorAll(".filter-button").forEach(button => {
 
 
 // Sidebar navigation
-document.querySelectorAll(".nav-link").forEach(link => {
+document.querySelectorAll("[data-filter]").forEach(link => {
     link.addEventListener("click", function(event) {
         event.preventDefault();
 
         currentFilter = this.dataset.filter;
-
-        document.querySelectorAll(".nav-link").forEach(item => {
-            item.classList.remove("active");
-        });
-
-        this.classList.add("active");
 
         document.querySelectorAll(".filter-button").forEach(button => {
             button.classList.toggle(
@@ -249,30 +407,11 @@ document.querySelectorAll(".nav-link").forEach(link => {
 });
 
 
-// Open task form
-openFormButton.addEventListener("click", function() {
-    taskForm.classList.remove("hidden");
-    taskName.focus();
-});
+// Open and close form buttons
+document.getElementById("open-form").addEventListener("click", openTaskForm);
+
+document.getElementById("close-form").addEventListener("click", closeTaskForm);
 
 
-// Close task form
-cancelFormButton.addEventListener("click", function() {
-    taskForm.reset();
-    taskForm.classList.add("hidden");
-});
-
-
-// Display an error message
-function showMessage(message) {
-    taskList.innerHTML = `
-        <div class="empty-state">
-            <h3>Something went wrong</h3>
-            <p>${escapeHTML(message)}</p>
-        </div>
-    `;
-}
-
-
-// Start application
+// Load application data
 loadTasks();
