@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow | Productivity Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+
+            <div class="logo">
+                <div class="logo-icon">T</div>
+                <h2>Task<span>Flow</span></h2>
+            </div>
+
+            <p class="sidebar-label">MENU</p>
+
+            <nav class="navigation">
+                <a href="#" class="nav-link active" data-filter="all">
+                    <span>▦</span> Overview
+                </a>
+
+                <a href="#" class="nav-link" data-filter="pending">
+                    <span>◷</span> Pending Tasks
+                </a>
+
+                <a href="#" class="nav-link" data-filter="completed">
+                    <span>✓</span> Completed
+                </a>
+            </nav>
+
+            <div class="sidebar-bottom">
+                <div class="sidebar-message">
+                    <div class="message-icon">✦</div>
+                    <h3>Stay productive.</h3>
+                    <p>Small steps create big results.</p>
+                </div>
+
+                <p class="version">TASKFLOW v2.0</p>
+            </div>
+
+        </aside>
+
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+
+            <header class="topbar">
+                <div>
+                    <p class="greeting">YOUR PRODUCTIVITY SPACE</p>
+                    <h1>My Dashboard<span>.</span></h1>
+                </div>
+
+                <div class="profile">
+                    <div class="profile-avatar">M</div>
+                    <div>
+                        <h4>My Workspace</h4>
+                        <p>Personal account</p>
+                    </div>
+                </div>
+            </header>
+
+
+            <!-- STATISTICS -->
+            <section class="stats-grid">
+
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <span>Total Tasks</span>
+                        <div class="stat-icon red">▦</div>
+                    </div>
+                    <h2 id="total-tasks">0</h2>
+                    <p>All your tasks</p>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <span>Pending</span>
+                        <div class="stat-icon clay">◷</div>
+                    </div>
+                    <h2 id="pending-tasks">0</h2>
+                    <p>Waiting for action</p>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-top">
+                        <span>Completed</span>
+                        <div class="stat-icon green">✓</div>
+                    </div>
+                    <h2 id="completed-tasks">0</h2>
+                    <p>Successfully finished</p>
+                </div>
+
+            </section>
+
+
+            <!-- TASK SECTION -->
+            <section class="task-section">
+
+                <div class="section-heading">
+                    <div>
+                        <p class="greeting">YOUR DAILY PLAN</p>
+                        <h2>Manage Tasks</h2>
+                    </div>
+
+                    <button class="add-button" id="open-form">
+                        + Add New Task
+                    </button>
+                </div>
+
+
+                <!-- ADD TASK FORM -->
+                <form id="task-form" class="task-form hidden">
+
+                    <h3>Create a new task</h3>
+
+                    <input
+                        type="text"
+                        id="task-name"
+                        placeholder="What needs to be done?"
+                        maxlength="120"
+                        required
+                    >
+
+                    <textarea
+                        id="task-description"
+                        placeholder="Add a description (optional)"
+                        maxlength="500"
+                    ></textarea>
+
+                    <div class="form-actions">
+                        <button type="button" id="cancel-form" class="cancel-button">
+                            Cancel
+                        </button>
+
+                        <button type="submit" class="add-button">
+                            Save Task
+                        </button>
+                    </div>
+
+                </form>
+
+
+                <!-- SEARCH AND FILTERS -->
+                <div class="task-toolbar">
+
+                    <div class="search-box">
+                        <span>⌕</span>
+                        <input type="text" id="search-input" placeholder="Search tasks...">
+                    </div>
+
+                    <div class="filters">
+                        <button class="filter-button active" data-filter="all">All</button>
+                        <button class="filter-button" data-filter="pending">Pending</button>
+                        <button class="filter-button" data-filter="completed">Completed</button>
+                    </div>
+
+                </div>
+
+
+                <!-- TASK LIST -->
+                <div id="task-list" class="task-list">
+
+                    <div class="empty-state">
+                        <div class="empty-icon">✓</div>
+                        <h3>No tasks yet</h3>
+                        <p>Add your first task to get started.</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <footer>
+                <p>Built with Python, Flask & JavaScript.</p>
+                <p>© 2026 TaskFlow</p>
+            </footer>
+
+        </main>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
